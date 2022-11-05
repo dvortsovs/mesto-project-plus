@@ -1,6 +1,6 @@
 import express from 'express';
-import path from 'path';
 import mongoose from 'mongoose';
+import userRouter from './routes/users';
 
 const { PORT = 3000 } = process.env;
 
@@ -11,7 +11,8 @@ app.use(express.urlencoded({ extended: true }));
 
 mongoose.connect('mongodb://localhost:27017/mydb');
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/user', userRouter);
+
 app.listen(PORT, () => {
   console.log(`App listening on port ${PORT}`);
 });
