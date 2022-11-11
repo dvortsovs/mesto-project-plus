@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongoose';
+import bcrypt from 'bcryptjs';
 import User from '../models/user';
 import { TRequest } from '../types/request-middleware-type';
 import { NOT_FOUND, BAD_REQUEST, SERVER_ERROR } from '../constants/errors';
@@ -23,8 +24,17 @@ export const getUser = (req: Request, res: Response) => User.find({ _id: req.par
   });
 
 export const createUser = (req: Request, res: Response) => {
-  const { name, about, avatar } = req.body;
-  return User.create({ name, about, avatar })
+  const {
+    email, password, name, about, avatar,
+  } = req.body;
+  return bcrypt.hash(password, 10)
+    .then((hash: string) => User.create({
+      name,
+      about,
+      avatar,
+      email,
+      password: hash,
+    }))
     .then((user) => res.send({ data: user }))
     .catch((err) => {
       if (err.name === 'ValidationError') {
