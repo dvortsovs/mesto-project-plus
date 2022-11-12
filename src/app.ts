@@ -1,8 +1,9 @@
-import express, { Request } from 'express';
+import express from 'express';
 import mongoose from 'mongoose';
 import usersRouter from './routes/users';
 import cardsRouter from './routes/cards';
-import { TRequest } from './types/request-middleware-type';
+import { createUser, login } from './controllers/users';
+import auth from './middlewares/auth';
 
 const { PORT = 3000 } = process.env;
 
@@ -11,15 +12,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-mongoose.connect('mongodb://localhost:27017/mestodb');
+mongoose.connect('mongodb://localhost:27017/mestodb')
+  .then(() => console.log('connected to db'))
+  .catch((err) => console.log(err));
 
-app.use((req: Request & TRequest<string>, res, next) => {
-  req.user = {
-    _id: '63680daf15e54ffff0f07258',
-  };
+app.post('/signin', login);
+app.post('/signup', createUser);
 
-  next();
-});
+app.use(auth);
 
 app.use('/users', usersRouter);
 app.use('/cards', cardsRouter);

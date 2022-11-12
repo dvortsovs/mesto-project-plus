@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
-import { ObjectId } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import User from '../models/user';
-import { TRequest } from '../types/request-middleware-type';
 import { NOT_FOUND, BAD_REQUEST, SERVER_ERROR } from '../constants/errors';
+import { SessionRequest } from '../types/session-request-middleware-type';
+import { getCurrentUserId } from '../services/utils';
 
 export const getUsers = (req: Request, res: Response) => User.find({})
   .then((users) => res.send({ data: users }))
@@ -22,6 +23,30 @@ export const getUser = (req: Request, res: Response) => User.find({ _id: req.par
     }
     return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
   });
+
+export const getCurrentUser = (req: SessionRequest, res: Response) => {
+  const owner = getCurrentUserId(req);
+  return User.find({ _id: owner })
+    .then((user) => res.send({ data: user }))
+    .catch((err) => {
+      if (err.name === 'CastError') {
+        return res.status(BAD_REQUEST).send({ message: 'Переданы некорректные данные' });
+      }
+      return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
+    });
+};
+
+export const login = (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  User.findUserByCredentials(email, password)
+    .then((user) => {
+      const token = jwt.sign({ _id: user._id }, 'super-strong-secret', { expiresIn: '7d' });
+      res.cookie('jwt', token, { httpOnly: true }).send({
+        message: 'login successful',
+      });
+    })
+    .catch((err) => res.status(401).send(err));
+};
 
 export const createUser = (req: Request, res: Response) => {
   const {
@@ -44,9 +69,9 @@ export const createUser = (req: Request, res: Response) => {
     });
 };
 
-export const updateUser = (req: Request & TRequest<ObjectId>, res: Response) => {
+export const updateUser = (req: SessionRequest, res: Response) => {
   const { name, about } = req.body;
-  const id = req.user;
+  const id = getCurrentUserId(req);
   return User.findByIdAndUpdate(id, { name, about }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
     .catch((err) => {
@@ -60,9 +85,9 @@ export const updateUser = (req: Request & TRequest<ObjectId>, res: Response) => 
     });
 };
 
-export const updateAvatar = (req: Request & TRequest<ObjectId>, res: Response) => {
+export const updateAvatar = (req: SessionRequest, res: Response) => {
   const { avatar } = req.body;
-  const id = req.user;
+  const id = getCurrentUserId(req);
   return User.findByIdAndUpdate(id, { avatar }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
     .catch((err) => {
