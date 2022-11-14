@@ -1,42 +1,37 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/user';
-import { NOT_FOUND, BAD_REQUEST, SERVER_ERROR } from '../constants/errors';
 import { SessionRequest } from '../types/session-request-middleware-type';
 import { getCurrentUserId } from '../services/utils';
+import NotFoundError from '../services/errors/not-found-error';
+import RegistrationError from '../services/errors/registration-error';
 
-export const getUsers = (req: Request, res: Response) => User.find({})
+export const getUsers = (req: Request, res: Response, next: NextFunction) => User.find({})
   .then((users) => res.send({ data: users }))
-  .catch(() => res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' }));
+  .catch(next);
 
-export const getUser = (req: Request, res: Response) => User.find({ _id: req.params.userId })
+export const getUser = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => User.findOne({ _id: req.params.userId })
   .then((user) => {
-    if (user) {
-      return res.send({ data: user });
+    if (!user) {
+      throw new NotFoundError('Запрашиваемый пользователь не найден');
     }
-    return res.status(NOT_FOUND).send({ message: 'Запрашиваемый пользователь не найден' });
+    return res.send({ data: user });
   })
-  .catch((err) => {
-    if (err.name === 'CastError') {
-      return res.status(BAD_REQUEST).send({ message: 'Переданы некорректные данные' });
-    }
-    return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
-  });
+  .catch(next);
 
-export const getCurrentUser = (req: SessionRequest, res: Response) => {
+export const getCurrentUser = (req: SessionRequest, res: Response, next: NextFunction) => {
   const owner = getCurrentUserId(req);
-  return User.find({ _id: owner })
+  return User.findOne({ _id: owner })
     .then((user) => res.send({ data: user }))
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        return res.status(BAD_REQUEST).send({ message: 'Переданы некорректные данные' });
-      }
-      return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
-    });
+    .catch(next);
 };
 
-export const login = (req: Request, res: Response) => {
+export const login = (req: Request, res: Response, next: NextFunction) => {
   const { email, password } = req.body;
   User.findUserByCredentials(email, password)
     .then((user) => {
@@ -45,10 +40,10 @@ export const login = (req: Request, res: Response) => {
         message: 'login successful',
       });
     })
-    .catch((err) => res.status(401).send(err));
+    .catch(next);
 };
 
-export const createUser = (req: Request, res: Response) => {
+export const createUser = (req: Request, res: Response, next: NextFunction) => {
   const {
     email, password, name, about, avatar,
   } = req.body;
@@ -62,41 +57,25 @@ export const createUser = (req: Request, res: Response) => {
     }))
     .then((user) => res.send({ data: user }))
     .catch((err) => {
-      if (err.name === 'ValidationError') {
-        return res.status(BAD_REQUEST).send({ message: 'Переданы некорректные данные' });
+      if (err.code === 11000) {
+        next(new RegistrationError('Этот Email уже используется'));
       }
-      return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
+      next(err);
     });
 };
 
-export const updateUser = (req: SessionRequest, res: Response) => {
+export const updateUser = (req: SessionRequest, res: Response, next: NextFunction) => {
   const { name, about } = req.body;
   const id = getCurrentUserId(req);
   return User.findByIdAndUpdate(id, { name, about }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        return res.status(NOT_FOUND).send({ message: 'Запрашиваемый пользователь не найден' });
-      }
-      if (err.name === 'ValidationError') {
-        return res.status(BAD_REQUEST).send({ message: 'Переданы некорректные данные' });
-      }
-      return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
-    });
+    .catch(next);
 };
 
-export const updateAvatar = (req: SessionRequest, res: Response) => {
+export const updateAvatar = (req: SessionRequest, res: Response, next: NextFunction) => {
   const { avatar } = req.body;
   const id = getCurrentUserId(req);
   return User.findByIdAndUpdate(id, { avatar }, { new: true, runValidators: true })
     .then((user) => res.send({ data: user }))
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        return res.status(NOT_FOUND).send({ message: 'Запрашиваемый пользователь не найден' });
-      }
-      if (err.name === 'ValidationError') {
-        return res.status(BAD_REQUEST).send({ message: 'Переданы некорректные данные' });
-      }
-      return res.status(SERVER_ERROR).send({ message: 'Произошла ошибка на сервере' });
-    });
+    .catch(next);
 };

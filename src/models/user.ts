@@ -3,6 +3,8 @@ import {
 } from 'mongoose';
 import validator from 'validator';
 import bcrypt from 'bcryptjs';
+import LoginError from '../services/errors/login-error';
+import { linkRegexp } from '../services/request-validation';
 
 export interface IUser {
   name: string;
@@ -47,6 +49,10 @@ const userSchema = new Schema<IUser, UserModel>({
   avatar: {
     type: String,
     default: 'https://pictures.s3.yandex.net/resources/jacques-cousteau_1604399756.png',
+    validate: {
+      validator: (e: string) => linkRegexp.test(e),
+      message: 'Неверный формат ссылки',
+    },
   },
 });
 
@@ -54,12 +60,12 @@ userSchema.static('findUserByCredentials', function findUserByCredentials(email:
   return this.findOne({ email }).select('+password')
     .then((user) => {
       if (!user) {
-        return Promise.reject(new Error('Неправильные почта или пароль'));
+        throw new LoginError('Неправильные почта или пароль');
       }
       return bcrypt.compare(password, user.password)
         .then((matched) => {
           if (!matched) {
-            return Promise.reject(new Error('Неправильные почта или пароль'));
+            throw new LoginError('Неправильные почта или пароль');
           }
           return user;
         });
