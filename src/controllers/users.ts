@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/user';
 import { SessionRequest } from '../types/session-request-middleware-type';
-import { getCurrentUserId } from '../services/utils';
+import { calculatedMaxAge, getCurrentUserId } from '../services/utils';
 import NotFoundError from '../services/errors/not-found-error';
 import RegistrationError from '../services/errors/registration-error';
 
@@ -36,7 +36,7 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
   User.findUserByCredentials(email, password)
     .then((user) => {
       const token = jwt.sign({ _id: user._id }, 'super-strong-secret', { expiresIn: '7d' });
-      res.cookie('jwt', token, { httpOnly: true }).send({
+      res.cookie('jwt', token, { httpOnly: true, maxAge: calculatedMaxAge(0, 0, 7) }).send({
         message: 'login successful',
       });
     })
@@ -59,6 +59,7 @@ export const createUser = (req: Request, res: Response, next: NextFunction) => {
     .catch((err) => {
       if (err.code === 11000) {
         next(new RegistrationError('Этот Email уже используется'));
+        return;
       }
       next(err);
     });

@@ -28,7 +28,9 @@ export const deleteCard = (
     }
     const owner = getCurrentUserId(req);
     if (String(card.owner) === owner) {
-      card.delete().then(() => res.send({ message: 'success' }));
+      card.delete()
+        .then(() => res.send({ message: 'success' }))
+        .catch(next);
     } else {
       throw new ForbiddenError('Попытка удалить чужую карточку');
     }
