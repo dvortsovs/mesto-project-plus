@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
 import { errors } from 'celebrate';
 import router from './routes';
 import { createUser, login } from './controllers/users';
@@ -12,6 +13,7 @@ const { PORT = 3000 } = process.env;
 
 const app = express();
 
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
